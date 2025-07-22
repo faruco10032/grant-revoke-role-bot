@@ -3,9 +3,11 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 import os
-from dotenv import load_dotenv
 
-# load_dotenv()
+if os.getenv("RENDER") is None:
+    from dotenv import load_dotenv
+    load_dotenv()
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
