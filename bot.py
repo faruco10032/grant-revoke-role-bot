@@ -9,6 +9,8 @@ if os.getenv("RENDER") is None:
     load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
+if not TOKEN:
+    raise RuntimeError("DISCORD_TOKEN is not set in environment variables.")
 
 intents = discord.Intents.default()
 intents.message_content = True
