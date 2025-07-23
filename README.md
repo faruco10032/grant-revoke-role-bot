@@ -1,4 +1,4 @@
-# Grant Revole Role Bot
+# Grant Revoke Role Bot
 
 一時的にDiscordロールを付与するbotです。指定した分数後にロールは自動で剥奪されます。
 
