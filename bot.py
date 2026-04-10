@@ -172,9 +172,20 @@ class RoleButtonView(discord.ui.View):
             notify_channel_id=self.notify_channel_id,
         )
 
+        # 表示用の時間文字列
+        if self.duration >= 1440:
+            d = self.duration // 1440
+            m = self.duration % 1440
+            if m > 0:
+                duration_text = "{}日{}分".format(d, m)
+            else:
+                duration_text = "{}日".format(d)
+        else:
+            duration_text = "{}分".format(self.duration)
+
         await interaction.response.send_message(
-            "{} を付与しました！\n{}分後に自動で外れます。".format(
-                role.name, self.duration
+            "{} を付与しました！\n{}後に自動で外れます。".format(
+                role.name, duration_text
             ),
             ephemeral=True,
         )
@@ -348,29 +359,48 @@ async def before_check():
 @bot.tree.command(name="setup_button", description="ロール付与ボタンを作成します")
 @app_commands.describe(
     role="付与したいロール",
-    minutes="ロールを保持する時間（分）",
+    minutes="ロールを保持する時間（分）。daysと併用可",
+    days="ロールを保持する時間（日）。minutesと併用可",
     notify_channel="ロール剥奪時に通知するチャンネル",
 )
 @app_commands.default_permissions(administrator=True)
 async def setup_button(
     interaction: discord.Interaction,
     role: discord.Role,
-    minutes: int = 10,
+    minutes: int = 0,
+    days: int = 0,
     notify_channel: Optional[discord.TextChannel] = None,
 ):
-    if minutes <= 0:
+    # 管理者権限の二重チェック
+    if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message(
-            "時間は1分以上にしてください。", ephemeral=True
+            "このコマンドは管理者のみ使用できます。", ephemeral=True
+        )
+        return
+
+    total_minutes = days * 1440 + minutes
+    if total_minutes <= 0:
+        await interaction.response.send_message(
+            "時間を1分以上に設定してください。\n例: `/setup_button @ロール minutes:10` または `days:30`",
+            ephemeral=True,
         )
         return
 
     notify_id = notify_channel.id if notify_channel else None
     view = RoleButtonView(
-        role_id=role.id, duration=minutes, notify_channel_id=notify_id
+        role_id=role.id, duration=total_minutes, notify_channel_id=notify_id
     )
 
+    # 表示用の時間文字列
+    if days > 0 and minutes > 0:
+        duration_text = "{}日{}分".format(days, minutes)
+    elif days > 0:
+        duration_text = "{}日".format(days)
+    else:
+        duration_text = "{}分".format(minutes)
+
     await interaction.response.send_message(
-        "{} を取得できるボタンを送信します。".format(role.name),
+        "{} を取得できるボタンを送信します。（保持時間: {}）".format(role.name, duration_text),
         ephemeral=True,
     )
     await interaction.channel.send(
@@ -386,18 +416,24 @@ async def setup_button(
 async def help_command(interaction: discord.Interaction):
     help_text = (
         "**Botの使い方**\n\n"
-        "`/setup_button ロール 時間(分) 通知チャンネル` を実行すると、"
+        "`/setup_button ロール minutes:分 days:日 notify_channel:通知チャンネル`\n"
         "ロール取得用のボタン付きメッセージが投稿されます。\n"
         "ボタンを押したユーザーにはそのロールが一時的に付与され、"
         "指定時間後に自動で削除されます。\n\n"
+        "**時間の指定：**\n"
+        "- `minutes` と `days` は併用可能です\n"
+        "- 例: `days:30` → 30日後に剥奪\n"
+        "- 例: `minutes:10` → 10分後に剥奪\n"
+        "- 例: `days:1 minutes:30` → 1日30分後に剥奪\n\n"
         "**通知チャンネルについて：**\n"
         "- 通知チャンネルを指定すると、ロールの剥奪時にそのチャンネルへ"
         "メンション付きで通知されます。\n"
         "- 通知チャンネルの指定は任意です（省略可）。\n\n"
         "**使用例：**\n"
-        "`/setup_button @一時入室 10 #ロール通知`\n"
-        "→ 「一時入室」ロールを10分間付与し、10分後に #ロール通知 に"
-        "剥奪通知を投稿します。\n\n"
+        "`/setup_button @一時入室 minutes:10 #ロール通知`\n"
+        "→ 10分間付与し、剥奪時に #ロール通知 に通知\n\n"
+        "`/setup_button @見てる人 days:30`\n"
+        "→ 30日間付与し、自動で剥奪\n\n"
         "**注意：**\n"
         "- Botのロールは、付与・剥奪対象のロールより上位にある必要があります。\n"
         "- このコマンドは管理者のみ使用できます。\n"
